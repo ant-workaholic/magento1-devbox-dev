@@ -1,0 +1,308 @@
+#!/usr/bin/env bash
+# Download this file
+#    curl -Ls https://raw.github.com/rikby/xdebug-switcher/master/download | bash
+# Show help
+#    curl -Ls https://raw.github.com/rikby/xdebug-switcher/master/download | bash -s -- --help
+# And run: xd_swi
+#
+# Show help:
+#    xd_swi -h
+#
+# Appreciates to owner/s for advices in http://bash3boilerplate.sh
+# http://kvz.io/blog/2013/11/21/bash-best-practices/
+
+set -o errexit
+set -o pipefail
+set -o nounset
+#set -o xtrace
+
+__version='v0.6.0'
+download_url='https://raw.github.com/rikby/xdebug-switcher/master/download'
+
+show_help () {
+  cat << EOF
+PHP XDebug extension switcher.
+Commands:
+  Toggle status
+    $ xd_swi
+    XDebug is enabled
+
+  Show this help
+    $ xd_swi -h
+
+  Push to ON
+    $ xd_swi 1|on
+    XDebug is enabled
+
+  Switch status without restarting service.
+    $ xd_swi 1|on
+    XDebug is enabled
+
+  Push to OFF
+    $ xd_swi 0|off
+    XDebug is disabled
+
+  Show status as integer 1 or 0
+    $ xd_swi stat
+    1
+
+  Show status as a message
+    $ xd_swi status
+    XDebug enabled
+
+  Get version
+    $ xd_swi -v|--version
+    v0.2.0
+
+  Get path to XDebug configuration INI file
+    $ xd_swi file
+
+  Run self update
+    $ xd_swi self-update
+
+  Define custom command to restart a service after changed status, e.g. php-fpm
+  (please don't use sudo because it will be used automatically if it's installed)
+    $ xd_swi restart-command -- supervisorctl restart php-fpm
+
+  Run xd_swi without restart command
+    $ xd_swi -n|--no-restart
+EOF
+}
+
+read_params () {
+  # Process args
+  action=''
+  if [ -n "${1:-}" ] && [ "${1::1}" != '-' ]; then
+    action="$1"
+    shift
+  fi
+
+  # Process options
+  # validate and redefine options
+  OPTS=`getopt -o vhn -l version,help,no-restart -- "$@"`
+  eval set -- "${OPTS}"
+  restart_on=1
+  while true; do
+    case "${1}" in
+      -v|--version)
+        echo ${__version}
+        exit 0
+        ;;
+      -n|--no-restart)
+        restart_on=0
+        shift
+        ;;
+      -h|--help)
+        show_help
+        exit 0
+        ;;
+      -\?)
+        show_help
+        exit 1
+        ;;
+      --)
+        shift
+        break
+        ;;
+      *)
+        echo "${0}: unparseable option ${1}."
+        exit 3
+        ;;
+    esac
+  done
+
+  rest_params=$@
+}
+
+check_php () {
+  # Check PHP
+  php --version > /dev/null 2>&1
+  if [  0 != $? ]; then
+      echo -e '\033[0;31m''PHP not found.''\e[0m'
+      exit 1
+  fi
+}
+
+find_ini_file () {
+  local file_ini
+  # Find Xdebug INI file
+  file_ini=$(php -i | grep -Eo '(([A-Z]\:|/)[^ ]+)xdebug.ini')
+  if [ -z ${file_ini} ]; then
+    file_ini=$(php -i | grep -Eo '(([A-Z]\:|/)[^ ]+)php.ini')
+  fi
+  if [ -z ${file_ini} ]; then
+    echo 'There is no PHP ini file to edit.'
+    exit 1
+  fi
+  if [ ! -f ${file_ini} ]; then
+    echo "There is no ini file '${file_ini}' to edit."
+    exit 1
+  fi
+  echo ${file_ini}
+}
+
+xdebug_on? () {
+  php -i | grep 'xdebug support => enabled' > /dev/null 2>&1 && echo 1 || echo 0
+}
+
+show_status () {
+  # Show status
+  [ '1' == "$(xdebug_on?)" ] \
+      && echo -e 'XDebug is ''\033[0;32m''enabled''\e[0m' \
+      || echo -e 'XDebug is ''\033[0;31m''disabled''\e[0m'
+}
+
+switch_status () {
+  local file_ini target_status match_string find replace sud
+  target_status="${1:-}"
+  [ "$(xdebug_on?)" == "${target_status}" ] && return
+
+  file_ini=$(find_ini_file)
+
+  # Check Xdebug configuration declaration.
+  match_string=$(cat ${file_ini} | grep -Eo ';*zend_extension\s*=.*xdebug')
+  if [ -z "${match_string}" ]; then
+    echo "There is no declaration about xdebug PHP extension."
+    exit 1
+  fi
+
+  if [ '0' == "$(xdebug_on?)" ] ; then
+    find="${match_string}"
+    replace=$( echo ${match_string} | tr -d ';' )
+  else
+    find=$( echo ${match_string} | tr -d ';' )
+    replace=";${match_string}"
+  fi
+
+  $(get_sudo) sed -i.bak -r "s|${find}|${replace}|g" ${file_ini}
+}
+
+get_sudo () {
+  local sud
+  sud=''
+  if [[ "$(uname -a)" =~ 'Msys' ]] || [[ "${EUID}" == '0' ]]; then
+    sud=''
+  elif sudo -v > /dev/null 2>&1; then
+    sud='sudo'
+  fi
+  echo ${sud}
+}
+
+self_update () {
+  if [ -e ${__file} ] && [ ! -w ${__file} ]; then
+      echo 'error: No permissions to perform update.'
+      exit 1
+  fi
+
+  if ! curl -Ls ${download_url} | bash -s -- --file ${__file} $@ > /dev/null 2>&1; then
+    echo 'error: Cannot complete update.'
+    exit 1
+  fi
+
+  ${__file} -v
+  echo 'Update completed.'
+}
+
+xd_test () {
+  local old result
+  result=1
+  old=$(xd_swi 'stat')
+  [[ "$(xd_swi 1)" =~ 'enabled' ]] && \
+  [[ "$(xd_swi 0)" =~ 'disabled' ]] && \
+  [[ "$(xd_swi)" =~ 'enabled' ]] && \
+  [[ "$(xd_swi 'status')" =~ 'enabled' ]] && \
+  [ "$(xd_swi 'stat')" == '1' ] && \
+  echo 'OK' || result=0
+
+  xd_swi ${old} > /dev/null 2>&1
+
+  [ "${result}" == '0' ] && echo 'FAILED' && exit 5
+}
+
+set_restart_command () {
+  if [ -n "${1:-}" ]; then
+    echo '#!/usr/bin/env bash' > /usr/local/lib/xd_swi-restart-command
+    echo '# Reztart command after switching status by command xd_swi.' >> /usr/local/lib/xd_swi-restart-command
+    echo "$@" >> /usr/local/lib/xd_swi-restart-command
+  elif [ -f /usr/local/lib/xd_swi-restart-command ]; then
+      cat /usr/local/lib/xd_swi-restart-command
+  else
+    echo 'no command'
+    exit 1
+  fi
+}
+
+xd_swi_restart_service () {
+  if [ '1' == "${1}" ]; then
+    if [ -f /usr/local/lib/xd_swi-restart-command ]; then
+      $(get_sudo) bash /usr/local/lib/xd_swi-restart-command
+    fi
+  fi
+}
+
+xd_swi () {
+  local __dir __file action restart_on
+  # Set magic variables for current file & dir
+  __dir="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" && pwd)"
+  __file="${__dir}/$(basename "${BASH_SOURCE[0]:-}")"
+  readonly __dir __file
+
+  read_params ${@}
+  eval set -- ${rest_params}
+
+  check_php
+
+  if [ 'test' == "${action}" ]; then
+    xd_test
+    exit 0
+  fi
+
+  if [ 'file' == "${action}" ]; then
+    find_ini_file
+    exit 0
+  fi
+
+  if [ 'status' == "${action}" ]; then
+    show_status
+    exit 0
+  fi
+
+  if [ 'stat' == "${action}" ]; then
+    xdebug_on?
+    exit 0
+  fi
+
+  if [ 'restart-command' == "${action}" ]; then
+    set_restart_command "$@"
+    exit 0
+  fi
+
+  if [[ "${action}" =~ self-?update ]]; then
+    self_update $@
+    exit 0
+  fi
+
+  status=''
+  if [ 'on' == "${action}" ]; then
+    status=1
+  elif [ 'off' == "${action}" ]; then
+    status=0
+  fi
+
+  switch_status ${status}
+  show_status
+  xd_swi_restart_service ${restart_on}
+}
+
+# Script running with pipeline
+if [ -z "${BASH_SOURCE[0]:-}" ]; then
+  curl -Ls ${download_url} | bash -s -- "${@}"
+  exit 0
+fi
+
+if [ "${BASH_SOURCE[0]:-}" != "${0}" ]; then
+  export -f xd_swi
+else
+  xd_swi "${@}"
+  exit $?
+fi
