@@ -11,7 +11,7 @@ FROM ihorchernin/magento1-devbox
 # Added sendmail                    #
 
 #Install sertificates for *.cc domain
-RUN mkdir -p /etc/nginx/cert \
+RUN mkdir -p /etc/apache/cert \
   && openssl req -new -x509 -days 365 -sha1 -newkey rsa:1024 -nodes \
           -keyout /etc/apache/cert/server.key \
           -out /etc/apache/cert/server.crt \
@@ -81,5 +81,5 @@ RUN cp /init-files/sshd_config /etc/ssh/sshd_config \
   && echo 'magento ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
 
   # remove second time this config because it appears somehow
-  && rm -f /etc/nginx/conf.d/default.conf
+  && rm -f /etc/apache/conf.d/default.conf
 
