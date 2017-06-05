@@ -80,6 +80,4 @@ RUN cp /init-files/sshd_config /etc/ssh/sshd_config \
   # Add magento user into sudoers
   && echo 'magento ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
 
-  # remove second time this config because it appears somehow
-  && rm -f /etc/apache/conf.d/default.conf
 
