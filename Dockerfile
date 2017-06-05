@@ -1,6 +1,7 @@
 #/bin/bash
 FROM ihorchernin/magento1-devbox
 
+
 #####################################
 # Soft for developers               #
 #####################################
