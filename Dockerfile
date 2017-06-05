@@ -78,6 +78,6 @@ RUN cp /init-files/sshd_config /etc/ssh/sshd_config \
   && xd_swi restart-command -- sudo supervisorctl restart php-fpm \
 
   # Add magento user into sudoers
-  && echo 'magento ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers \
+  && echo 'magento ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
 
