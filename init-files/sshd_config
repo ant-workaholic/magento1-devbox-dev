@@ -120,7 +120,7 @@ UsePAM yes
 #PrintLastLog yes
 #TCPKeepAlive yes
 #UseLogin no
-UsePrivilegeSeparation sandbox          # Default for new installations.
+UsePrivilegeSeparation yes          # Default for new installations.
 #PermitUserEnvironment no
 #Compression delayed
 #ClientAliveInterval 0
