@@ -46,5 +46,10 @@ RUN cp /init-files/sshd_config /etc/ssh/sshd_config \
   && cp -r /root/.ssh /home/magento/ \
   && chown magento:magento -R /home/magento/.ssh
 
+RUN cp /init-files/xdebug.ini /etc/php.d/xdebug.ini.join \
+  && xd_file=$(php -i | grep xdebug.ini | grep -oE '/.+xdebug.ini')  \
+  && cat /etc/php.d/xdebug.ini.join >> ${xd_file}  \
+  && rm -f /etc/php.d/xdebug.ini.join
+
 RUN cp /init-files/xd_swi /usr/local/bin/xd_swi \
       && chmod +x /usr/local/bin/xd_swi && xd_swi off
