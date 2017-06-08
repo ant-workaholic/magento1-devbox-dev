@@ -2,10 +2,12 @@
 FROM ihorchernin/magento1-devbox
 
 RUN yum -y update \
-    yum clean all
 
 RUN yum -y install openssh-server passwd \
- yum clean all
+     php-pecl-xdebug \
+     sendmail \
+     yum clean all \
+ && yum -y clean all
 
 RUN mkdir /var/run/sshd
 
