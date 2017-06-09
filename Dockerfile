@@ -5,7 +5,7 @@ RUN yum -y update \
     yum clean all
 
 RUN yum -y install openssh-server passwd \
- yum clean all
+    yum clean all
 
 RUN yum install -y net-tools \
                         htop \
@@ -15,6 +15,10 @@ RUN yum install -y net-tools \
                         sendmail
 
 RUN mkdir /var/run/sshd
+
+RUN yum install php56w-devel
+RUN yum install gcc gcc-c++ autoconf automake --skip-broken
+RUN pecl install Xdebug
 
 RUN echo 'root:dev' | chpasswd
 RUN echo 'magento:dev' | chpasswd
