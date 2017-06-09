@@ -16,7 +16,6 @@ RUN yum install -y net-tools \
 
 RUN mkdir /var/run/sshd
 
-RUN yum install php56w-devel
 RUN yum install gcc gcc-c++ autoconf automake --skip-broken
 RUN pecl install Xdebug
 
