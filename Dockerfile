@@ -10,7 +10,6 @@ RUN yum -y install openssh-server passwd \
 RUN yum install -y net-tools \
                         htop \
                         nano \
-                        php-pecl-xdebug \
                         sudo \
                         sendmail
 
